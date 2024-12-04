@@ -1,0 +1,75 @@
+import cv2
+import numpy as np
+
+# Load the image
+image_path = "imagini_auxiliare/01.jpg"
+image = cv2.imread(image_path)
+
+if image is None:
+    print("Error: Could not read the image. Make sure the file exists and the path is correct.")
+    exit()
+
+hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+cv2.namedWindow("HSV Adjustments")
+cv2.namedWindow("Grayscale Adjustments")
+
+# Callback function for trackbars (does nothing but required by OpenCV)
+def nothing(x):
+    pass
+
+cv2.createTrackbar("Hue", "HSV Adjustments", 0, 180, nothing)
+cv2.createTrackbar("Saturation", "HSV Adjustments", 0, 255, nothing)
+cv2.createTrackbar("Value", "HSV Adjustments", 255, 255, nothing)
+
+cv2.createTrackbar('Upper threshold', "Grayscale Adjustments", 255, 255, nothing)
+cv2.createTrackbar('Lower threshold', "Grayscale Adjustments", 140, 255, nothing)
+
+while True:
+    
+    # Get the current positions of the trackbars
+    hue_offset = cv2.getTrackbarPos("Hue", "HSV Adjustments")
+    sat_offset = cv2.getTrackbarPos("Saturation", "HSV Adjustments")
+    val_offset = cv2.getTrackbarPos("Value", "HSV Adjustments")
+
+    upper_offset = cv2.getTrackbarPos('Upper threshold', "Grayscale Adjustments")
+    lower_offset = cv2.getTrackbarPos('Lower threshold', "Grayscale Adjustments")
+    
+    # Apply the offsets to the HSV image
+    adjusted_hsv = hsv_image.copy()
+    adjusted_hsv[:, :, 0] = (adjusted_hsv[:, :, 0] + hue_offset) % 180  # Adjust Hue
+    adjusted_hsv[:, :, 1] = np.clip(adjusted_hsv[:, :, 1] * (sat_offset / 255), 0, 255).astype(np.uint8)  # Adjust Saturation
+    adjusted_hsv[:, :, 2] = np.clip(adjusted_hsv[:, :, 2] * (val_offset / 255), 0, 255).astype(np.uint8)  # Adjust Value
+
+    # Convert back to BGR for display
+    adjusted_image = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+
+    adjusted_image = cv2.resize(adjusted_image, (0,0), fx=0.3, fy=0.3)
+
+    # Show the adjusted image
+    #cv2.imshow("HSV Adjustments", adjusted_image)
+
+    gray_adjusted_image = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2GRAY)
+
+    gray_adjusted_image[gray_adjusted_image > upper_offset] = 0
+    gray_adjusted_image[gray_adjusted_image < lower_offset] = 0
+
+    #cv2.imshow("Grayscale Adjustments", gray_adjusted_image)
+
+    gray_image = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2GRAY)
+
+    _, thresh = cv2.threshold(gray_image, lower_offset, upper_offset, cv2.THRESH_BINARY)
+
+    kernel = np.ones((3,3), np.uint8)
+    thresh = cv2.erode(thresh, kernel)
+
+    edge_image = cv2.Canny(thresh, 200, 400)
+
+    cv2.imshow('Edge Filter', edge_image)
+
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Cleanup
+cv2.destroyAllWindows()
